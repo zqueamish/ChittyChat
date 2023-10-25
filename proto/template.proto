@@ -1,0 +1,7 @@
+package proto;
+
+//uses newer proto syntax
+syntax = "proto3";
+
+//tells compiler name of go package of pb.go files
+option go_package = "github.com/zqueamish/ChittyChat/proto";
