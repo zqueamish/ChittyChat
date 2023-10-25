@@ -1,0 +1,44 @@
+// Followed tutoral:
+// https://articles.wesionary.team/grpc-console-chat-application-in-go-dd77a29bb5c3
+
+syntax = "proto3";
+
+option go_package = "https://github.com/Haruyzal/uni/tree/main/DSYS/ChittyChat/proto";
+
+package proto;
+
+// Note: Multiple channels can occur in app.
+
+// JoinChannel: Req. to join, responds with
+// stream of messages passed to the channel.
+// RPC = Remote Procedure Call
+
+// SendMessage: Sends msg to channel, returns MessageAck for ack.
+
+service ChatService {
+	rpc JoinChannel(Channel) returns (stream Message) {}
+	rpc SendMessage(stream Message) returns (MessageAck) {}
+}
+
+// senders_name stores which user joined whichchannel
+
+message Channel {
+	string name = 1;
+	string senders_name = 2;
+}
+
+// sender stores the name of the sender
+// channel stores the channel name
+// message stores the message to be sent to the channel
+
+message Message {
+	string sender = 1;
+	Channel channel = 2;
+	string message = 3;
+}
+
+// an ack to the sent message, contains status of ack
+
+message MessageAck {
+	string status = 1;
+}
