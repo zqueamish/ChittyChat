@@ -1,7 +1,5 @@
-package proto;
-
-//uses newer proto syntax
 syntax = "proto3";
 
-//tells compiler name of go package of pb.go files
-option go_package = "github.com/zqueamish/ChittyChat/proto";
+option go_package = "something/proto";
+
+package proto;
