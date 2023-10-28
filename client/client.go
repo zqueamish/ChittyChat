@@ -1,19 +1,19 @@
 package main
 
 import (
+	proto "ChittyChat/grpc"
 	"bufio"
 	"context"
 	"flag"
 	"log"
 	"os"
-	proto "simpleGuide/grpc"
 	"strconv"
-	"time"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
 type Client struct {
+	username  string
 	id         int
 	portNumber int
 }
@@ -27,8 +27,13 @@ func main() {
 	// Parse the flags to get the port for the client
 	flag.Parse()
 
+	// Prompt user to enter a username
+	print("Enter a username: ")
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Scan()
 	// Create a client
 	client := &Client{
+		username: scanner.Text(),
 		id:         1,
 		portNumber: *clientPort,
 	}
@@ -49,26 +54,30 @@ func waitForTimeRequest(client *Client) {
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 		input := scanner.Text()
-		log.Printf("Client asked for time with input: %s\n", input)
 
-		// Ask the server for the time
-		T1 := time.Now()
-		timeReturnMessage, err := serverConnection.AskForTime(context.Background(), &proto.AskForTimeMessage{
-			ClientId: int64(client.id),
-		})
+		// Send message to server
+		stream, err := serverConnection.SendMessages(context.Background())
 		if err != nil {
 			log.Print(err.Error())
 		} else {
-			T4 := time.Now()
-			T2 := time.Unix(0,timeReturnMessage.T2)
-			T3 := time.Unix(0,timeReturnMessage.T3)
-			roundtriptime := (T4.Sub(T1)) - (T3.Sub(T2))
-			log.Println("Round trip time:", roundtriptime.Nanoseconds())
+			message := &proto.Message{
+				Username:  client.username,
+				Text:      input,
+				Timestamp: 0,
+			}
+			stream.Send(message)
+			farewell, err := stream.Recv()
+			if err != nil {
+				log.Print(err.Error())
+			} else {
+				log.Printf("%s says: %s", farewell.Username, farewell.Text)
+			}
 		}
 	}
 }
 
-func connectToServer() (proto.TimeAskClient, error) {
+
+func connectToServer() (proto.ChatServiceClient, error) {
 	// Dial the server at the specified port.
 	conn, err := grpc.Dial("localhost:"+strconv.Itoa(*serverPort), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -76,5 +85,5 @@ func connectToServer() (proto.TimeAskClient, error) {
 	} else {
 		log.Printf("Connected to the server at port %d\n", *serverPort)
 	}
-	return proto.NewTimeAskClient(conn), nil
+	return proto.NewChatServiceClient(conn), nil
 }

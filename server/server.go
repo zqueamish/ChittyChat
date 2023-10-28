@@ -1,19 +1,18 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"google.golang.org/grpc"
 	"log"
 	"net"
-	proto "simpleGuide/grpc"
+	proto "ChittyChat/grpc"
 	"strconv"
-	"time"
 )
 
 // Struct that will be used to represent the Server.
 type Server struct {
-	proto.UnimplementedTimeAskServer // Necessary
+	proto.UnimplementedChatServiceServer // Necessary
+	connections []proto.ChatService_SendMessagesServer // Connections to the server
 	name                             string
 	port                             int
 }
@@ -46,7 +45,7 @@ func startServer(server *Server) {
 	grpcServer := grpc.NewServer()
 
 	// Make the server listen at the given port (convert int port to string)
-	listener, err := net.Listen("tcp", ":"+strconv.Itoa(server.port))
+	listener, err := net.Listen("tcp", "localhost:"+strconv.Itoa(server.port))
 
 	if err != nil {
 		log.Fatalf("Could not create the server %v", err)
@@ -54,19 +53,59 @@ func startServer(server *Server) {
 	log.Printf("Started server at port: %d\n", server.port)
 
 	// Register the grpc server and serve its listener
-	proto.RegisterTimeAskServer(grpcServer, server)
+	proto.RegisterChatServiceServer(grpcServer, server)
 	serveError := grpcServer.Serve(listener)
 	if serveError != nil {
 		log.Fatalf("Could not serve listener")
 	}
 }
 
-func (c *Server) AskForTime(ctx context.Context, in *proto.AskForTimeMessage) (*proto.TimeMessage, error) {
-	var T2 int64 = time.Now().UnixNano()
-	log.Printf("Client with ID %d asked for the time\n", in.ClientId)
-	return &proto.TimeMessage{
-		T2:       T2,
-		T3: 	 time.Now().UnixNano(),
-		ServerName: c.name,
-	}, nil
+// func (c *Server) SendMessages(msgStream proto.ChatService_SendMessagesServer) error {
+// 	// Wait for a message from the client
+// 	for {
+// 		msg, err := msgStream.Recv()
+// 		if err != nil {
+// 			log.Fatalf("Error when receiving message from client: %v", err)
+// 		}
+// 		// Print message on server
+// 		log.Printf("%s says: %s", msg.Username, msg.Text)
+// 		// Send a response back to the client
+// 		ack := &proto.Message{
+// 			Username: "server",
+// 			Text:     "Hello, " + msg.Username + "!",
+// 		}
+// 		msgStream.Send(ack)
+// 		if err != nil {
+// 			log.Fatalf("Error when sending message to client: %v", err)
+// 		}
+// 	}
+// }
+
+func (c *Server) SendMessages(msgStream proto.ChatService_SendMessagesServer) error {
+    // Add the new connection to the list of active connections
+    c.connections = append(c.connections, msgStream)
+
+    // Wait for a message from the client
+    for {
+        msg, err := msgStream.Recv()
+        if err != nil {
+            log.Fatalf("Error when receiving message from client: %v", err)
+        }
+        // Print message on server
+        log.Printf("%s says: %s", msg.Username, msg.Text)
+
+        // Send the message to all connected clients
+        for _, conn := range c.connections {
+            if conn != msgStream {
+                ack := &proto.Message{
+                    Username: "server",
+                    Text:     msg.Username + " says: " + msg.Text,
+                }
+                err := conn.Send(ack)
+                if err != nil {
+                    log.Fatalf("Error when sending message to client: %v", err)
+                }
+            }
+        }
+    }
 }
