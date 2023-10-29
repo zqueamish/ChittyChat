@@ -66,11 +66,11 @@ func waitForTimeRequest(client *Client) {
 				Timestamp: 0,
 			}
 			stream.Send(message)
-			farewell, err := stream.Recv()
+			received, err := stream.Recv()
 			if err != nil {
 				log.Print(err.Error())
 			} else {
-				log.Printf("%s says: %s", farewell.Username, farewell.Text)
+				log.Printf(received.Text)
 			}
 		}
 	}
