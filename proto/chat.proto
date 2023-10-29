@@ -35,6 +35,7 @@ message Message {
 	string sender = 1;
 	Channel channel = 2;
 	string message = 3;
+	int timestamp = 4;
 }
 
 // an ack to the sent message, contains status of ack

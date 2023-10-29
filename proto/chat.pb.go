@@ -86,6 +86,7 @@ type Message struct {
 	Sender  string   `protobuf:"bytes,1,opt,name=sender,proto3" json:"sender,omitempty"`
 	Channel *Channel `protobuf:"bytes,2,opt,name=channel,proto3" json:"channel,omitempty"`
 	Message string   `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
+	Timestamp int   	`protobuf:"varint,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 }
 
 func (x *Message) Reset() {
@@ -139,6 +140,13 @@ func (x *Message) GetMessage() string {
 		return x.Message
 	}
 	return ""
+}
+
+func (x *Message) GetTimestamp() int {
+	if x != nil {
+		return x.Timestamp
+	}
+	return 0
 }
 
 type MessageAck struct {
