@@ -9,9 +9,21 @@ import (
 	"io"
 	"log"
 	"os"
+	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
+
+func clearPreviousConsoleLine() {
+	// \033[1A moves the cursor up one line
+	// \033[2K clears the entire line
+	fmt.Print("\033[1A\033[2K")
+}
+
+func formatClientMessage(incoming *pb.Message) string {
+	return fmt.Sprintf("%v [%v]: %v\n", time.Now().Local().Format("15:04:05"), incoming.GetSender(), incoming.GetMessage())
+}
 
 func joinChannel(ctx context.Context, client pb.ChatServiceClient) {
 
@@ -28,10 +40,9 @@ func joinChannel(ctx context.Context, client pb.ChatServiceClient) {
 
 	go func() {
 		for {
+			incoming, err := stream.Recv()
 
-			in, err := stream.Recv()
-
-			if err != io.EOF {
+			if err == io.EOF {
 				close(waitc)
 				return
 			}
@@ -40,8 +51,13 @@ func joinChannel(ctx context.Context, client pb.ChatServiceClient) {
 				log.Fatalf("Failed to receive message from channel joining. \nError: %v", err)
 			}
 
-			if *senderName != in.Sender {
-				fmt.Printf("MESSAGE: (%v) -> %v\n", in.Sender, in.Message)
+			messageFormat := formatClientMessage(incoming)
+
+			if *senderName == incoming.GetSender() {
+				clearPreviousConsoleLine()
+				fmt.Print(messageFormat)
+			} else {
+				fmt.Print(messageFormat)
 			}
 		}
 	}()
@@ -53,7 +69,7 @@ func joinChannel(ctx context.Context, client pb.ChatServiceClient) {
 func sendMessage(ctx context.Context, client pb.ChatServiceClient, message string) {
 	stream, err := client.SendMessage(ctx)
 	if err != nil {
-		log.Printf("Cannot send message: error: %v", err)
+		log.Printf("Cannot send message - Error: %v", err)
 	}
 	msg := pb.Message{
 		Channel: &pb.Channel{
@@ -65,10 +81,11 @@ func sendMessage(ctx context.Context, client pb.ChatServiceClient, message strin
 	stream.Send(&msg)
 
 	ack, err := stream.CloseAndRecv()
-	fmt.Printf("Message sent: %v \n", ack)
+	fmt.Printf("Message  %v \n", ack) // Message Status: Sent if successful
+	clearPreviousConsoleLine()
 }
 
-var channelName = flag.String("channel", "default", "Channel name for chatting")
+var channelName = flag.String("channel", "eepy chat", "Channel name for chatting")
 var senderName = flag.String("sender", "default", "Sender's name")
 var tcpServer = flag.String("server", ":8080", "Tcp server")
 
@@ -79,7 +96,7 @@ func main() {
 	fmt.Println("--- CLIENT APP ---")
 
 	var opts []grpc.DialOption
-	opts = append(opts, grpc.WithBlock(), grpc.WithInsecure())
+	opts = append(opts, grpc.WithBlock(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 	conn, err := grpc.Dial(*tcpServer, opts...)
 	if err != nil {

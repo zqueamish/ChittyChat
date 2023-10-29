@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"time"
 
 	"google.golang.org/grpc"
 )
@@ -25,12 +26,6 @@ type chatServiceServer struct {
 
 func (s *chatServiceServer) JoinChannel(ch *pb.Channel, msgStream pb.ChatService_JoinChannelServer) error {
 
-	// create a channel for the client
-	// this channel is used to send messages to the client
-	// the channel is added to the map s.channel
-	// so s.channel is a map of channel pointers
-	// where a channel's pointer can be appended to the map
-
 	msgChannel := make(chan *pb.Message)
 	s.channel[ch.Name] = append(s.channel[ch.Name], msgChannel)
 
@@ -41,35 +36,46 @@ func (s *chatServiceServer) JoinChannel(ch *pb.Channel, msgStream pb.ChatService
 		case <-msgStream.Context().Done():
 			// signals to server that the client has disconnected and the channel can be removed
 			return nil
-		// if a message is received from the client, send it to the channel
+		// if a message is received from the client, send it to the server
 		case msg := <-msgChannel:
-			// printss the message to the server
-			fmt.Printf("GO ROUTINE (got message): %v\n", msg)
+			// prints the message to the server, note that the message is being printed x amount of times, where x is the number of clients connected to the channel
+			//fmt.Printf("%v\n", formatMessage(msg))
 			// sends the message to the client
 			msgStream.Send(msg)
 		}
 	}
 }
 
+// Function to format message to be printed to the server
+func formatMessage(msg *pb.Message) string {
+	return fmt.Sprintf("[%v]: %v\n", msg.Sender, msg.Message)
+}
+
 // SendMessage function is called when a client sends a message.
-// When a client sends a message, we send the message to all clients in the channel.
+// When a client sends a message, we send the message to the channel.
 
 func (s *chatServiceServer) SendMessage(msgStream pb.ChatService_SendMessageServer) error {
 
 	// Receive message from client
 	msg, err := msgStream.Recv()
 
+	// if there are no errors, return nil
 	if err == io.EOF {
 		return nil
 	}
 
+	// if there are errors, return the error
 	if err != nil {
 		return err
 	}
 
 	// Acknowledge message received to client
-	ack := pb.MessageAck{Status: "SENT"}
+	ack := pb.MessageAck{Status: "Sent"}
 	msgStream.SendAndClose(&ack)
+
+	// Print message to server
+	formattedMessage := formatMessage(msg)
+	fmt.Printf(time.Now().Local().Format("15:04:05") + " " + formattedMessage)
 
 	// Goroutine to send message to all clients in the channel
 	go func() {
