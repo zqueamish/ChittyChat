@@ -24,22 +24,47 @@ type chatServiceServer struct {
 // JoinChannel function is called when a client joins a channel.
 // When a client joins a channel, we add the channel to the map.
 
+var timeFormat = time.Now().Local().Format("15:04:05") + " "
+
 func (s *chatServiceServer) JoinChannel(ch *pb.Channel, msgStream pb.ChatService_JoinChannelServer) error {
 
 	msgChannel := make(chan *pb.Message)
 	s.channel[ch.Name] = append(s.channel[ch.Name], msgChannel)
+
+	// Send a message to every client in the channel that a new client has joined
+	joinString := fmt.Sprintf("%v has joined the channel %v", ch.GetSendersName(), ch.Name)
+	msg := &pb.Message{Sender: ch.Name, Message: joinString, Channel: ch}
+	go func() {
+		streams := s.channel[msg.Channel.Name]
+		for _, msgChan := range streams {
+			msgChan <- msg
+		}
+	}()
+
+	// Send a message to every client in the channel that a client has left
+	defer func() {
+		leaveString := fmt.Sprintf("%v has left the channel %v", ch.GetSendersName(), ch.Name)
+		msg := &pb.Message{Sender: ch.Name, Message: leaveString, Channel: ch}
+		go func() {
+			streams := s.channel[msg.Channel.Name]
+			for _, msgChan := range streams {
+				msgChan <- msg
+			}
+		}()
+	}()
 
 	// doing this never closes the stream
 	for {
 		select {
 		// if the client closes the stream / disconnects, the channel is closed
 		case <-msgStream.Context().Done():
+			leaveString := fmt.Sprintf("Has left the channel %v", ch.Name)
+			fmt.Printf(timeFormat + "[" + ch.GetSendersName() + "]: " + leaveString + "\n")
+
 			// signals to server that the client has disconnected and the channel can be removed
 			return nil
 		// if a message is received from the client, send it to the server
 		case msg := <-msgChannel:
-			// prints the message to the server, note that the message is being printed x amount of times, where x is the number of clients connected to the channel
-			//fmt.Printf("%v\n", formatMessage(msg))
 			// sends the message to the client
 			msgStream.Send(msg)
 		}
@@ -48,7 +73,7 @@ func (s *chatServiceServer) JoinChannel(ch *pb.Channel, msgStream pb.ChatService
 
 // Function to format message to be printed to the server
 func formatMessage(msg *pb.Message) string {
-	return fmt.Sprintf("[%v]: %v\n", msg.Sender, msg.Message)
+	return fmt.Sprintf(timeFormat+"[%v]: %v\n", msg.Sender, msg.Message)
 }
 
 // SendMessage function is called when a client sends a message.
@@ -75,7 +100,7 @@ func (s *chatServiceServer) SendMessage(msgStream pb.ChatService_SendMessageServ
 
 	// Print message to server
 	formattedMessage := formatMessage(msg)
-	fmt.Printf(time.Now().Local().Format("15:04:05") + " " + formattedMessage)
+	fmt.Printf(formattedMessage)
 
 	// Goroutine to send message to all clients in the channel
 	go func() {

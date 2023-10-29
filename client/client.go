@@ -34,7 +34,8 @@ func joinChannel(ctx context.Context, client pb.ChatServiceClient) {
 		log.Fatalf("client.JoinChannel(ctx, &channel) throws: %v", err)
 	}
 
-	fmt.Printf("Joined channel: %v\n", channel.Name)
+	fmt.Println(" ")
+	//fmt.Printf("Joined channel: %v\n", channel.Name)
 
 	waitc := make(chan struct{})
 
@@ -93,7 +94,7 @@ func main() {
 
 	flag.Parse()
 
-	fmt.Println("--- CLIENT APP ---")
+	fmt.Println("--- CHITTY CHAT ---")
 
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithBlock(), grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -103,12 +104,14 @@ func main() {
 		log.Fatalf("Fail to dial: %v", err)
 	}
 
-	defer conn.Close()
-
 	ctx := context.Background()
 	client := pb.NewChatServiceClient(conn)
 
+	defer conn.Close()
+
 	go joinChannel(ctx, client)
+	//var joinLeaveString = fmt.Sprintf("%v has joined the channel %v", *senderName, *channelName)
+	//go sendMessage(ctx, client, joinLeaveString)
 
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
