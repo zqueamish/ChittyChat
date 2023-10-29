@@ -34,9 +34,6 @@ func joinChannel(ctx context.Context, client pb.ChatServiceClient) {
 		log.Fatalf("client.JoinChannel(ctx, &channel) throws: %v", err)
 	}
 
-	fmt.Println(" ")
-	//fmt.Printf("Joined channel: %v\n", channel.Name)
-
 	waitc := make(chan struct{})
 
 	go func() {
@@ -86,8 +83,8 @@ func sendMessage(ctx context.Context, client pb.ChatServiceClient, message strin
 	clearPreviousConsoleLine()
 }
 
-var channelName = flag.String("channel", "eepy chat", "Channel name for chatting")
-var senderName = flag.String("sender", "default", "Sender's name")
+var channelName = flag.String("channel", "Eepy chat", "Channel name for chatting")
+var senderName = flag.String("sender", "Anon", "Sender's name")
 var tcpServer = flag.String("server", ":8080", "Tcp server")
 
 func main() {

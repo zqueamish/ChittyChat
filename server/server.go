@@ -28,29 +28,20 @@ var timeFormat = time.Now().Local().Format("15:04:05") + " "
 
 func (s *chatServiceServer) JoinChannel(ch *pb.Channel, msgStream pb.ChatService_JoinChannelServer) error {
 
-	msgChannel := make(chan *pb.Message)
-	s.channel[ch.Name] = append(s.channel[ch.Name], msgChannel)
+	// Create a channel for the client
+	clientChannel := make(chan *pb.Message)
+	// Add the client-channel to the map
+	s.channel[ch.Name] = append(s.channel[ch.Name], clientChannel)
 
-	// Send a message to every client in the channel that a new client has joined
-	joinString := fmt.Sprintf("%v has joined the channel %v", ch.GetSendersName(), ch.Name)
+	// Send a message to every client in the server that a new client has joined
+	joinString := fmt.Sprintf("%v has joined the channel", ch.GetSendersName())
+	fmt.Printf(timeFormat+"[%v]: "+joinString+"\n", ch.Name)
 	msg := &pb.Message{Sender: ch.Name, Message: joinString, Channel: ch}
 	go func() {
 		streams := s.channel[msg.Channel.Name]
-		for _, msgChan := range streams {
-			msgChan <- msg
+		for _, clientChan := range streams {
+			clientChan <- msg
 		}
-	}()
-
-	// Send a message to every client in the channel that a client has left
-	defer func() {
-		leaveString := fmt.Sprintf("%v has left the channel %v", ch.GetSendersName(), ch.Name)
-		msg := &pb.Message{Sender: ch.Name, Message: leaveString, Channel: ch}
-		go func() {
-			streams := s.channel[msg.Channel.Name]
-			for _, msgChan := range streams {
-				msgChan <- msg
-			}
-		}()
 	}()
 
 	// doing this never closes the stream
@@ -58,13 +49,32 @@ func (s *chatServiceServer) JoinChannel(ch *pb.Channel, msgStream pb.ChatService
 		select {
 		// if the client closes the stream / disconnects, the channel is closed
 		case <-msgStream.Context().Done():
-			leaveString := fmt.Sprintf("Has left the channel %v", ch.Name)
-			fmt.Printf(timeFormat + "[" + ch.GetSendersName() + "]: " + leaveString + "\n")
+			leaveString := fmt.Sprintf("%v has left the channel", ch.GetSendersName())
+			fmt.Printf(timeFormat+"[%v]: "+leaveString+"\n", ch.Name)
+
+			// Remove the clientChannel from the slice of channels for this channel
+			channels := s.channel[ch.Name]
+			for i, channel := range channels {
+				if channel == clientChannel {
+					s.channel[ch.Name] = append(channels[:i], channels[i+1:]...)
+					break
+				}
+			}
+
+			// Send a message to every client in the channel that a client has left
+			msg := &pb.Message{Sender: ch.Name, Message: leaveString, Channel: ch}
+			go func() {
+				streams := s.channel[msg.Channel.Name]
+				for _, clientChan := range streams {
+					clientChan <- msg
+				}
+			}()
+			//}()
 
 			// signals to server that the client has disconnected and the channel can be removed
 			return nil
 		// if a message is received from the client, send it to the server
-		case msg := <-msgChannel:
+		case msg := <-clientChannel:
 			// sends the message to the client
 			msgStream.Send(msg)
 		}
@@ -105,8 +115,8 @@ func (s *chatServiceServer) SendMessage(msgStream pb.ChatService_SendMessageServ
 	// Goroutine to send message to all clients in the channel
 	go func() {
 		streams := s.channel[msg.Channel.Name]
-		for _, msgChan := range streams {
-			msgChan <- msg
+		for _, clientChan := range streams {
+			clientChan <- msg
 		}
 	}()
 
@@ -125,6 +135,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to listen on port 8080: %v", err)
 	}
+	fmt.Println("--- CHITTY CHAT ---")
 
 	var opts []grpc.ServerOption
 	grpcServer := grpc.NewServer(opts...)
