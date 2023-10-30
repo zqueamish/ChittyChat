@@ -56,7 +56,9 @@ func joinChannel(ctx context.Context, client pb.ChatServiceClient) { //, Lamport
 			}
 
 			// Lamport increment when message is received
+			fmt.Print(incoming)
 			if incoming.GetTimestamp() > Lamport {
+				fmt.Print("entered")
 				incoming.Timestamp++
 				Lamport = incoming.GetTimestamp()
 			} else {
@@ -139,5 +141,4 @@ func main() {
 	for scanner.Scan() {
 		go sendMessage(ctx, client, scanner.Text()) //, Lamport)
 	}
-
 }
