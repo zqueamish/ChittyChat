@@ -60,27 +60,6 @@ func startServer(server *Server) {
 	}
 }
 
-// func (c *Server) SendMessages(msgStream proto.ChatService_SendMessagesServer) error {
-// 	// Wait for a message from the client
-// 	for {
-// 		msg, err := msgStream.Recv()
-// 		if err != nil {
-// 			log.Fatalf("Error when receiving message from client: %v", err)
-// 		}
-// 		// Print message on server
-// 		log.Printf("%s says: %s", msg.Username, msg.Text)
-// 		// Send a response back to the client
-// 		ack := &proto.Message{
-// 			Username: "server",
-// 			Text:     "Hello, " + msg.Username + "!",
-// 		}
-// 		msgStream.Send(ack)
-// 		if err != nil {
-// 			log.Fatalf("Error when sending message to client: %v", err)
-// 		}
-// 	}
-// }
-
 func (c *Server) SendMessages(msgStream proto.ChatService_SendMessagesServer) error {
     // Add the new connection to the list of active connections
     c.connections = append(c.connections, msgStream)
