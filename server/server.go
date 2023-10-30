@@ -34,9 +34,7 @@ func main() {
 	go startServer(server)
 
 	// Keep the server running until it is manually quit
-	for {
-
-	}
+	select {}
 }
 
 func startServer(server *Server) {
