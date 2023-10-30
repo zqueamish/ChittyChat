@@ -82,10 +82,15 @@ func (s *chatServiceServer) JoinChannel(ch *pb.Channel, msgStream pb.ChatService
 
 			// closes the function by returning nil.
 			return nil
+
 		// if a message is received from the client, send it to the server
 		case msg := <-clientChannel:
 			if msg.GetTimestamp() > s.Lamport {
-				s.Lamport = msg.GetTimestamp() + 1
+				msg.Timestamp++
+				s.Lamport = msg.GetTimestamp()
+			} else {
+				s.Lamport++
+				msg.Timestamp = s.Lamport
 			}
 			// sends the message to the server's SendMessage method
 			msgStream.Send(msg)
@@ -94,9 +99,9 @@ func (s *chatServiceServer) JoinChannel(ch *pb.Channel, msgStream pb.ChatService
 }
 
 // Function to format message to be printed to the server
-//func formatMessage(msg *pb.Message) string {
-//	return fmt.Sprintf("Lamport time: %v [%v]: %v\n", msg.Timestamp, msg.Sender, msg.Message)
-//}
+func formatMessage(msg *pb.Message) string {
+	return fmt.Sprintf("Lamport time: %v [%v]: %v\n", msg.GetTimestamp(), msg.GetSender(), msg.GetMessage())
+}
 
 // SendMessage function is called when a client sends a message.
 // AKA this is where the serever receives a message from a client, that the other clients shall receive.
@@ -108,9 +113,11 @@ func (s *chatServiceServer) SendMessage(msgStream pb.ChatService_SendMessageServ
 	msg, err := msgStream.Recv()
 
 	if msg.GetTimestamp() > s.Lamport {
-		s.Lamport = msg.Timestamp + 1
+		msg.Timestamp++
+		s.Lamport = msg.GetTimestamp()
 	} else {
-		msg.Timestamp = s.Lamport + 1
+		s.Lamport++
+		msg.Timestamp = s.Lamport
 	}
 
 	// if there are no errors, return nil
@@ -128,8 +135,8 @@ func (s *chatServiceServer) SendMessage(msgStream pb.ChatService_SendMessageServ
 	msgStream.SendAndClose(&ack)
 
 	// Print message to server
-	//formattedMessage := formatMessage(msg)
-	//fmt.Printf(formattedMessage)
+	formattedMessage := formatMessage(msg)
+	fmt.Printf(formattedMessage)
 
 	// Goroutine to send message to all clients in the channel
 	go func() {
