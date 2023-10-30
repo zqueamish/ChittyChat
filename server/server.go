@@ -21,8 +21,8 @@ type chatServiceServer struct {
 	channel map[string][]chan *pb.Message
 }
 
-// JoinChannel function is called when a client joins a channel.
-// When a client joins a channel, we add the channel to the map.
+// JoinChannel function is called when a client joins a server.
+// When a client joins a server, we createn a channel for the client, and add the chan to the map.
 
 var timeFormat = time.Now().Local().Format("15:04:05") + " "
 
@@ -71,7 +71,7 @@ func (s *chatServiceServer) JoinChannel(ch *pb.Channel, msgStream pb.ChatService
 			}()
 			//}()
 
-			// signals to server that the client has disconnected and the channel can be removed
+			// closes the function by returning nil.
 			return nil
 		// if a message is received from the client, send it to the server
 		case msg := <-clientChannel:
@@ -125,7 +125,6 @@ func (s *chatServiceServer) SendMessage(msgStream pb.ChatService_SendMessageServ
 	// If we don't return nil, the protobuf compiler will throw an error
 	// saying that the function doesn't return anything
 	return nil
-
 }
 
 func main() {

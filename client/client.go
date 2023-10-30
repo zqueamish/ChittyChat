@@ -40,6 +40,7 @@ func joinChannel(ctx context.Context, client pb.ChatServiceClient) {
 		for {
 			incoming, err := stream.Recv()
 
+			// if it reaches the end of what it can receive, close the channel?
 			if err == io.EOF {
 				close(waitc)
 				return
@@ -107,8 +108,6 @@ func main() {
 	defer conn.Close()
 
 	go joinChannel(ctx, client)
-	//var joinLeaveString = fmt.Sprintf("%v has joined the channel %v", *senderName, *channelName)
-	//go sendMessage(ctx, client, joinLeaveString)
 
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
