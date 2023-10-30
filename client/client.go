@@ -38,15 +38,13 @@ func main() {
 		portNumber: *clientPort,
 	}
 
-	// Wait for the client (user) to ask for the time
-	go waitForTimeRequest(client)
+	// Wait for the client (user) to Send messages
+	go ClientMessageRequest(client)
 
-	for {
-
-	}
+	select {}
 }
 
-func waitForTimeRequest(client *Client) {
+func ClientMessageRequest(client *Client) {
 	// Connect to the server
 	serverConnection, _ := connectToServer()
 

@@ -12,7 +12,7 @@ import (
 // Struct that will be used to represent the Server.
 type Server struct {
 	proto.UnimplementedChatServiceServer // Necessary
-	connections []proto.ChatService_SendMessagesServer // Connections to the server
+	connections []proto.ChatService_SendMessagesServer // Connections to server
 	name                             string
 	port                             int
 }
