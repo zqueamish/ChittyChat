@@ -18,7 +18,7 @@ import (
 type chatServiceServer struct {
 	pb.UnimplementedChatServiceServer
 	channel map[string][]chan *pb.Message
-	Lamport int // Remote timestamp; keeps local time for newly joined users
+	Lamport int32 // Remote timestamp; keeps local time for newly joined users
 }
 
 // JoinChannel function is called when a client joins a server.
@@ -28,27 +28,37 @@ type chatServiceServer struct {
 
 func (s *chatServiceServer) JoinChannel(ch *pb.Channel, msgStream pb.ChatService_JoinChannelServer) error {
 
+	//fmt.Printf("Lamport: %v\n", s.Lamport)
+	// Increment Lamport time
+	//s.Lamport++
+
 	// Create a channel for the client
 	clientChannel := make(chan *pb.Message)
+
 	// Add the client-channel to the map
 	s.channel[ch.Name] = append(s.channel[ch.Name], clientChannel)
 
-	// Send a message to every client in the server that a new client has joined
-	// Format string, incr. s.Lamport, prep string to be in message,
-	s.Lamport++
-	joinString := fmt.Sprintf("%v has joined the channel", ch.GetSendersName())
-	fmt.Printf("Lamport time: %v [%v]: "+joinString+"\n", s.Lamport, ch.Name)
+	// Format join-string to prep string to be in message
+	//joinString := fmt.Sprintf("%v has joined the channel", ch.GetSendersName())
 
-	// Create message
-	msg := &pb.Message{Sender: ch.Name, Message: joinString, Channel: ch, Timestamp: s.Lamport}
+	//fmt.Printf("Lamport after incr: %v\n", s.Lamport)
+
+	// Create welcome/join message
+	//msg := &pb.Message{Sender: ch.Name, Message: joinString, Channel: ch, Timestamp: s.Lamport}
+
+	// Print formatted join message to server
+	//formattedMessage := formatMessage(msg)
+	//fmt.Printf("Sent at " + formattedMessage)
 
 	// Send message to every client in the server.
-	go func() {
+	/*go func() {
 		streams := s.channel[msg.Channel.Name]
 		for _, clientChan := range streams {
 			clientChan <- msg
 		}
-	}()
+	}()*/
+
+	//msgStream.Send(msg)
 
 	// doing this never closes the stream
 	for {
@@ -72,13 +82,15 @@ func (s *chatServiceServer) JoinChannel(ch *pb.Channel, msgStream pb.ChatService
 
 			// Send a message to every client in the channel that a client has left
 			msg := &pb.Message{Sender: ch.Name, Message: leaveString, Channel: ch, Timestamp: s.Lamport}
+			//msgStream.Send(msg)
+
 			go func() {
 				streams := s.channel[msg.Channel.Name]
 				for _, clientChan := range streams {
 					clientChan <- msg
 				}
 			}()
-			//}()
+			//}()*/
 
 			// closes the function by returning nil.
 			return nil
@@ -86,13 +98,15 @@ func (s *chatServiceServer) JoinChannel(ch *pb.Channel, msgStream pb.ChatService
 		// if a message is received from the client, send it to the server
 		case msg := <-clientChannel:
 			if msg.GetTimestamp() > s.Lamport {
-				msg.Timestamp++
 				s.Lamport = msg.GetTimestamp()
 			} else {
 				s.Lamport++
-				msg.Timestamp = s.Lamport
 			}
+
+			msg.Timestamp = s.Lamport
+
 			// sends the message to the server's SendMessage method
+			fmt.Printf("Sent at " + formatMessage(msg))
 			msgStream.Send(msg)
 		}
 	}
@@ -112,13 +126,13 @@ func (s *chatServiceServer) SendMessage(msgStream pb.ChatService_SendMessageServ
 	// Receive message from client
 	msg, err := msgStream.Recv()
 
-	if msg.GetTimestamp() > s.Lamport {
+	/*if msg.GetTimestamp() > s.Lamport {
 		msg.Timestamp++
 		s.Lamport = msg.GetTimestamp()
 	} else {
 		s.Lamport++
 		msg.Timestamp = s.Lamport
-	}
+	}*/
 
 	// if there are no errors, return nil
 	if err == io.EOF {
@@ -135,11 +149,23 @@ func (s *chatServiceServer) SendMessage(msgStream pb.ChatService_SendMessageServ
 	msgStream.SendAndClose(&ack)
 
 	// Print message to server
-	formattedMessage := formatMessage(msg)
-	fmt.Printf(formattedMessage)
+	//formattedMessage := formatMessage(msg)
+	//fmt.Printf("Received at " + formattedMessage)
 
 	// Goroutine to send message to all clients in the channel
 	go func() {
+
+		if msg.GetTimestamp() > s.Lamport {
+			msg.Timestamp++
+			s.Lamport = msg.GetTimestamp()
+		} else {
+			s.Lamport++
+			msg.Timestamp = s.Lamport
+		}
+
+		formattedMessage := formatMessage(msg)
+		fmt.Printf("Received at " + formattedMessage)
+
 		streams := s.channel[msg.Channel.Name]
 		for _, clientChan := range streams {
 			clientChan <- msg
@@ -168,5 +194,8 @@ func main() {
 		//Remote timestamp
 		Lamport: 0,
 	})
+
+	fmt.Printf("Server started at Lamport time: %v\n", 0)
+
 	grpcServer.Serve(lis)
 }

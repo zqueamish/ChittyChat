@@ -39,13 +39,16 @@ func joinChannel(ctx context.Context, client pb.ChatServiceClient) { //, Lamport
 		log.Fatalf("client.JoinChannel(ctx, &channel) throws: %v", err)
 	}
 
+	// Send the join message to the server
+	sendMessage(ctx, client, *senderName+" has joined the channel")
+
 	waitc := make(chan struct{})
 
 	go func() {
 		for {
 			incoming, err := stream.Recv()
 
-			// if it reaches the end of what it can receive, close the channel?
+			// if the stream is closed, close the wait channel and return
 			if err == io.EOF {
 				close(waitc)
 				return
@@ -56,9 +59,9 @@ func joinChannel(ctx context.Context, client pb.ChatServiceClient) { //, Lamport
 			}
 
 			// Lamport increment when message is received
-			fmt.Print(incoming)
+			//fmt.Printf("Lamport: %v\n", Lamport)
+			//fmt.Printf("Incoming timestamp: %v\n", incoming.GetTimestamp())
 			if incoming.GetTimestamp() > Lamport {
-				fmt.Print("entered")
 				incoming.Timestamp++
 				Lamport = incoming.GetTimestamp()
 			} else {
@@ -66,10 +69,13 @@ func joinChannel(ctx context.Context, client pb.ChatServiceClient) { //, Lamport
 				incoming.Timestamp = Lamport
 			}
 
-			messageFormat := formatClientMessage(incoming)
+			//fmt.Printf("Incoming timestamp after incr: %v\n", incoming.GetTimestamp())
+			messageFormat := "Received at " + formatClientMessage(incoming)
 
 			if *senderName == incoming.GetSender() {
-				clearPreviousConsoleLine()
+				if incoming.GetMessage() != (*senderName + " has joined the channel") {
+					clearPreviousConsoleLine()
+				}
 				fmt.Print(messageFormat)
 			} else {
 				fmt.Print(messageFormat)
@@ -99,6 +105,9 @@ func sendMessage(ctx context.Context, client pb.ChatServiceClient, message strin
 		//Local Timestamp
 		Timestamp: Lamport,
 	}
+
+	//clearPreviousConsoleLine()
+	//fmt.Printf("Sent at " + formatClientMessage(&msg))
 	stream.Send(&msg)
 
 	ack, err := stream.CloseAndRecv()
@@ -114,12 +123,11 @@ var channelName = flag.String("channel", "Eepy chat", "Channel name for chatting
 var senderName = flag.String("sender", "Anon", "Sender's name")
 var tcpServer = flag.String("server", ":8080", "Tcp server")
 
-var Lamport = 0
+var Lamport int32 = 0
 
 func main() {
 
 	flag.Parse()
-	//var Lamport = 0
 	fmt.Println("--- CHITTY CHAT ---")
 
 	var opts []grpc.DialOption
