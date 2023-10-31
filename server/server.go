@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
 
 	"google.golang.org/grpc"
 )
@@ -129,8 +130,10 @@ func (s *chatServiceServer) sendMsgToClients(msg *pb.Message) {
 		if msg.Message == "9cbf281b855e41b4ad9f97707efdd29d" {
 			msg.Message = fmt.Sprintf("Participant %v joined Chitty-Chat at Lamport time %v", msg.GetSender(), msg.GetTimestamp()-2)
 			fmt.Println("Received: " + msg.GetMessage())
+			log.Println("Received: " + msg.GetMessage())
 		} else {
 			formattedMessage := formatMessage(msg)
+			log.Printf("Received at " + formattedMessage)
 			fmt.Printf("Received at " + formattedMessage)
 		}
 
@@ -147,6 +150,9 @@ func formatMessage(msg *pb.Message) string {
 }
 
 func main() {
+	// Sets the logger to use a log.txt file instead of the console
+	f := setLog()
+	defer f.Close()
 	lis, err := net.Listen("tcp", ":8080")
 
 	if err != nil {
@@ -163,6 +169,25 @@ func main() {
 	})
 
 	fmt.Printf("Server started at Lamport time: %v\n", 0)
+	log.Printf("Server started at Lamport time: %v\n", 0)
 
 	grpcServer.Serve(lis)
 }
+
+    // sets the logger to use a log.txt file instead of the console
+    func setLog() *os.File {
+        // Clears the log.txt file when a new server is started
+		if _, err := os.Open("Server.txt"); err == nil {
+        if err := os.Truncate("Server.txt", 0); err != nil {
+            log.Printf("Failed to truncate: %v", err)
+        }
+	}
+
+        // This connects to the log file/changes the output of the log information to the log.txt file.
+        f, err := os.OpenFile("Server.txt", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+        if err != nil {
+            log.Fatalf("error opening file: %v", err)
+        }
+        log.SetOutput(f)
+        return f
+    }

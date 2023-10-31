@@ -21,8 +21,10 @@ import (
 func joinChannel(ctx context.Context, client pb.ChatServiceClient) { //, Lamport int) {
 
 	channel := pb.Channel{Name: *channelName, SendersName: *senderName}
+	f := setLog(*senderName)
+	defer f.Close()
 	stream, err := client.JoinChannel(ctx, &channel)
-
+	
 	if err != nil {
 		log.Fatalf("client.JoinChannel(ctx, &channel) throws: %v", err)
 	}
@@ -61,8 +63,10 @@ func joinChannel(ctx context.Context, client pb.ChatServiceClient) { //, Lamport
 				if incoming.GetMessage() != fmt.Sprintf("Participant %v joined Chitty-Chat at Lamport time %v", incoming.GetSender(), incoming.GetTimestamp()-3) {
 					clearPreviousConsoleLine()
 				}
+				log.Print(messageFormat)
 				fmt.Print(messageFormat)
 			} else {
+				log.Print(messageFormat)
 				fmt.Print(messageFormat)
 			}
 		}
@@ -76,6 +80,7 @@ func sendMessage(ctx context.Context, client pb.ChatServiceClient, message strin
 	stream, err := client.SendMessage(ctx)
 	if err != nil {
 		log.Printf("Cannot send message - Error: %v", err)
+		fmt.Printf("Cannot send message - Error: %v", err)
 	}
 
 	// Increase Lamport timestamp before sending
@@ -99,8 +104,10 @@ func sendMessage(ctx context.Context, client pb.ChatServiceClient, message strin
 	ack, err := stream.CloseAndRecv()
 	if err != nil {
 		log.Printf("Cannot send message - Error: %v", err)
+		fmt.Printf("Cannot send message - Error: %v", err)
 	}
 
+	log.Printf("Message  %v \n", ack)
 	fmt.Printf("Message  %v \n", ack)
 	// The prev. line is cleared, so that sent messages is not printed twice for the client
 	clearPreviousConsoleLine()
@@ -141,7 +148,6 @@ var tcpServer = flag.String("server", ":8080", "Tcp server")
 var Lamport int32 = 0
 
 func main() {
-
 	screen.Clear()
 	screen.MoveTopLeft()
 	time.Sleep(time.Second / 60)
@@ -179,3 +185,21 @@ func main() {
 		go sendMessage(ctx, client, message)
 	}
 }
+
+    // sets the logger to use a log.txt file instead of the console
+    func setLog(name string) *os.File {
+        // Clears the log.txt file when a new server is started
+		
+		if _,err := os.Open(fmt.Sprintf("%s.txt",name)); err == nil {
+        if err := os.Truncate(fmt.Sprintf("%s.txt",name), 0); err != nil {
+            log.Printf("Failed to truncate: %v", err)
+        }}
+
+        // This connects to the log file/changes the output of the log information to the log.txt file.
+        f, err := os.OpenFile(fmt.Sprintf("%s.txt",name), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+        if err != nil {
+            log.Fatalf("error opening file: %v", err)
+        }
+        log.SetOutput(f)
+        return f
+    }
