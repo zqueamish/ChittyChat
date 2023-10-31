@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"unicode/utf8"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -159,6 +160,15 @@ func main() {
 
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
-		go sendMessage(ctx, client, scanner.Text())
+		message := scanner.Text()
+		if !utf8.ValidString(message) {
+			fmt.Println("\n[Invalid characters.]\n[Please ensure your message is UTF-8 encoded.]\n")
+			continue
+		}
+		if len(message) > 128 {
+			fmt.Println("\n[Brevity is the soul of wit.]\n[Please keep your message under 128 characters.]\n")
+			continue
+		}
+		go sendMessage(ctx, client, message)
 	}
 }
