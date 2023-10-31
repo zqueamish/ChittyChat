@@ -13,4 +13,4 @@ To run and use Chitty-Chat:
 7. Log files for the users can be found in the client folder saved as \<username\>.txt
 8. Log files for the server can be found in the server folder saved as Server.txt
 
-(sidenote The servers port is set to 8080 in the code always so if its in use or blocked the server wont work unless the port is changed in the code)
+(sidenote: The servers port is set to 8080 in the code always so if its in use or blocked the server wont work unless the port is changed in the code)
