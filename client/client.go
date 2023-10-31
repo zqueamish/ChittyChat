@@ -9,8 +9,11 @@ import (
 	"io"
 	"log"
 	"os"
+	"time"
 	"unicode/utf8"
 
+	cursor "atomicgo.dev/cursor"
+	"github.com/inancgumus/screen"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -58,6 +61,7 @@ func joinChannel(ctx context.Context, client pb.ChatServiceClient) { //, Lamport
 			if *senderName == incoming.GetSender() {
 				if incoming.GetMessage() != "I've joined the channel" {
 					clearPreviousConsoleLine()
+					//fmt.Print(messageFormat)
 				}
 				fmt.Print(messageFormat)
 			} else {
@@ -113,10 +117,10 @@ func incrLamport(msg *pb.Message) {
 	msg.Timestamp = Lamport
 }
 
-// \033[1A moves the cursor up one line
-// \033[2K clears the entire line
+// Function from atomicgo.dev/cursor to clear the previous line in the console
 func clearPreviousConsoleLine() {
-	fmt.Print("\033[1A\033[2K")
+	cursor.ClearLinesUp(1)
+	cursor.StartOfLine()
 }
 
 // Function to format message to be printed to the client
@@ -138,6 +142,10 @@ var tcpServer = flag.String("server", ":8080", "Tcp server")
 var Lamport int32 = 0
 
 func main() {
+
+	screen.Clear()
+	screen.MoveTopLeft()
+	time.Sleep(time.Second / 60)
 
 	flag.Parse()
 
