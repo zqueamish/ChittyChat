@@ -129,8 +129,8 @@ func (s *chatServiceServer) sendMsgToClients(msg *pb.Message) {
 	go func() {
 		if msg.Message == "9cbf281b855e41b4ad9f97707efdd29d" {
 			msg.Message = fmt.Sprintf("Participant %v joined Chitty-Chat at Lamport time %v", msg.GetSender(), msg.GetTimestamp()-2)
-			fmt.Println("Received at %v: %v", msg.GetTimestamp(), msg.GetMessage())
-			log.Println("Received at %v: %v", msg.GetTimestamp(), msg.GetMessage())
+			fmt.Println("Received at Lamport time %v: %v", msg.GetTimestamp(), msg.GetMessage())
+			log.Println("Received at Lamport time %v: %v", msg.GetTimestamp(), msg.GetMessage())
 		} else {
 			formattedMessage := formatMessage(msg)
 			log.Printf("Received at " + formattedMessage)
