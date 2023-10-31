@@ -170,11 +170,11 @@ func main() {
 	for scanner.Scan() {
 		message := scanner.Text()
 		if !utf8.ValidString(message) {
-			fmt.Println("\n[Invalid characters.]\n[Please ensure your message is UTF-8 encoded.]\n")
+			fmt.Printf("\n[Invalid characters.]\n[Please ensure your message is UTF-8 encoded.]\n\n")
 			continue
 		}
 		if len(message) > 128 {
-			fmt.Println("\n[Brevity is the soul of wit.]\n[Please keep your message under 128 characters.]\n")
+			fmt.Printf("\n[Brevity is the soul of wit.]\n[Please keep your message under 128 characters.]\n\n")
 			continue
 		}
 		go sendMessage(ctx, client, message)
