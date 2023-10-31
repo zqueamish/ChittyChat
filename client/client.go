@@ -28,8 +28,7 @@ func joinChannel(ctx context.Context, client pb.ChatServiceClient) { //, Lamport
 	}
 
 	// Send the join message to the server
-	sendMessage(ctx, client, "I've joined the channel")
-
+	sendMessage(ctx, client, "9cbf281b855e41b4ad9f97707efdd29d")
 	// Channel that waits for the stream to close
 	// So when <-waitc is called, it waits for an empty struct to be sent
 	// This is to ensure that joinChannel doesn't exit before the stream's closed
@@ -59,9 +58,8 @@ func joinChannel(ctx context.Context, client pb.ChatServiceClient) { //, Lamport
 			messageFormat := "Received at " + formatClientMessage(incoming)
 
 			if *senderName == incoming.GetSender() {
-				if incoming.GetMessage() != "I've joined the channel" {
+				if incoming.GetMessage() != fmt.Sprintf("Participant %v joined Chitty-Chat at Lamport time %v", incoming.GetSender(), incoming.GetTimestamp()-3) {
 					clearPreviousConsoleLine()
-					//fmt.Print(messageFormat)
 				}
 				fmt.Print(messageFormat)
 			} else {
@@ -94,6 +92,7 @@ func sendMessage(ctx context.Context, client pb.ChatServiceClient, message strin
 		Timestamp: Lamport,
 	}
 
+	// Send message to server via stream
 	stream.Send(&msg)
 
 	// CloseAndRecv() closes the stream and returns the server's response, an ack
@@ -132,7 +131,7 @@ func printWelcome() {
 	fmt.Println("\n ━━━━━⊱⊱ ⋆  CHITTY CHAT ⋆ ⊰⊰━━━━━")
 	fmt.Println("⋆｡˚ ☁︎ ˚｡ Welcome to " + *channelName)
 	fmt.Println("⋆｡˚ ☁︎ ˚｡ Your username's " + *senderName)
-	fmt.Printf("⋆｡˚ ☁︎ ˚｡ To exit, press Ctrl + C\n\n")
+	fmt.Println("⋆｡˚ ☁︎ ˚｡ To exit, press Ctrl + C\n\n")
 }
 
 var channelName = flag.String("channel", "Eepy", "Channel name for chatting")

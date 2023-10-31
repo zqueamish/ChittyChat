@@ -38,13 +38,14 @@ func (s *chatServiceServer) JoinChannel(ch *pb.Channel, msgStream pb.ChatService
 		// if the client closes the stream / disconnects, the channel is closed
 		case <-msgStream.Context().Done():
 
-			leaveString := fmt.Sprintf("%v has left the channel", ch.GetSendersName())
+			//leaveString := fmt.Sprintf("%v has left the channel", ch.GetSendersName())
+			leaveString := fmt.Sprintf("Participant %v has left the Chitty-Chat at Lamport time %v", ch.GetSendersName(), s.Lamport)
 
 			// Remove the clientChannel from the slice of channels for this channel
 			s.removeChannel(ch, clientChannel)
 
-			// Simulate that the client has sent a farewellmessage to the server
-			s.Lamport++
+			// Simulate that the client has sent a farewell message to the server
+			//s.Lamport++
 
 			// Send a message to every client in the channel that a client has left
 			msg := &pb.Message{Sender: ch.Name, Message: leaveString, Channel: ch, Timestamp: s.Lamport}
@@ -54,25 +55,27 @@ func (s *chatServiceServer) JoinChannel(ch *pb.Channel, msgStream pb.ChatService
 			// closes the function by returning nil.
 			return nil
 
-		// if a message is received from the client, send it to the server
+		// if a client sends a message, incr! :D Since server has RECEIVED a msg
 		case msg := <-clientChannel:
 
-			s.incrLamport(msg)
+			//s.incrLamport(msg)
 
-			// sends the message to the server's SendMessage method
+			// stream sends the message to client
 			msgStream.Send(msg)
 		}
 	}
 }
 
 // SendMessage function is called when a client sends a message.
-// AKA this is where the serever receives a message from a client, that the other clients shall receive.
+// AKA this is where the serever receives a message from a client's stream that the other clients shall receive.
 // When a client sends a message, we send the message to the channel.
 
 func (s *chatServiceServer) SendMessage(msgStream pb.ChatService_SendMessageServer) error {
 
 	// Receive message from client
 	msg, err := msgStream.Recv()
+
+	s.incrLamport(msg)
 
 	// if the stream is closed, return nil
 	if err == io.EOF {
@@ -120,12 +123,16 @@ func (s *chatServiceServer) removeChannel(ch *pb.Channel, currClientChannel chan
 
 // Function to send message to all clients in the channel
 func (s *chatServiceServer) sendMsgToClients(msg *pb.Message) {
-	s.Lamport++
-	msg.Timestamp = s.Lamport
+	s.incrLamport(msg)
 
 	go func() {
-		formattedMessage := formatMessage(msg)
-		fmt.Printf("Received at " + formattedMessage)
+		if msg.Message == "9cbf281b855e41b4ad9f97707efdd29d" {
+			msg.Message = fmt.Sprintf("Participant %v joined Chitty-Chat at Lamport time %v", msg.GetSender(), msg.GetTimestamp()-2)
+			fmt.Println("Received: " + msg.GetMessage())
+		} else {
+			formattedMessage := formatMessage(msg)
+			fmt.Printf("Received at " + formattedMessage)
+		}
 
 		streams := s.channel[msg.Channel.Name]
 		for _, clientChan := range streams {
