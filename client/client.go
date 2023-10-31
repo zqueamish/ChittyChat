@@ -14,22 +14,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-/*type client struct {
-	pb.UnimplementedChatServiceServer
-
-	Lamport int
-}*/
-
-func clearPreviousConsoleLine() {
-	// \033[1A moves the cursor up one line
-	// \033[2K clears the entire line
-	fmt.Print("\033[1A\033[2K")
-}
-
-func formatClientMessage(incoming *pb.Message) string {
-	return fmt.Sprintf("Lamport time: %v [%v]: %v\n", incoming.GetTimestamp(), incoming.GetSender(), incoming.GetMessage())
-}
-
 func joinChannel(ctx context.Context, client pb.ChatServiceClient) { //, Lamport int) {
 
 	channel := pb.Channel{Name: *channelName, SendersName: *senderName}
@@ -40,15 +24,23 @@ func joinChannel(ctx context.Context, client pb.ChatServiceClient) { //, Lamport
 	}
 
 	// Send the join message to the server
-	sendMessage(ctx, client, *senderName+" has joined the channel")
+	sendMessage(ctx, client, "I've joined the channel")
 
+	// Channel that waits for the stream to close
+	// So when <-waitc is called, it waits for an empty struct to be sent
+	// This is to ensure that joinChannel doesn't exit before the stream's closed
 	waitc := make(chan struct{})
 
 	go func() {
+		// The for loop is an infinite loop: Won't ever exit unless stream is closed
 		for {
+			// Receive message from stream and store it in incoming and possible error in err
 			incoming, err := stream.Recv()
 
-			// if the stream is closed, close the wait channel and return
+			// The stream closes when the client disconnects from the server, or vice versa
+			// So if err == io.EOF, the stream is closed
+			// If the stream is closed, close() is called on the waitc channel
+			// Causeing <-waitc to exit, thus ending the joinChannel func
 			if err == io.EOF {
 				close(waitc)
 				return
@@ -58,22 +50,12 @@ func joinChannel(ctx context.Context, client pb.ChatServiceClient) { //, Lamport
 				log.Fatalf("Failed to receive message from channel joining. \nError: %v", err)
 			}
 
-			// Lamport increment when message is received
-			//fmt.Printf("Lamport: %v\n", Lamport)
-			//fmt.Printf("Incoming timestamp: %v\n", incoming.GetTimestamp())
-			if incoming.GetTimestamp() > Lamport {
-				incoming.Timestamp++
-				Lamport = incoming.GetTimestamp()
-			} else {
-				Lamport++
-				incoming.Timestamp = Lamport
-			}
+			incrLamport(incoming)
 
-			//fmt.Printf("Incoming timestamp after incr: %v\n", incoming.GetTimestamp())
 			messageFormat := "Received at " + formatClientMessage(incoming)
 
 			if *senderName == incoming.GetSender() {
-				if incoming.GetMessage() != (*senderName + " has joined the channel") {
+				if incoming.GetMessage() != "I've joined the channel" {
 					clearPreviousConsoleLine()
 				}
 				fmt.Print(messageFormat)
@@ -92,6 +74,7 @@ func sendMessage(ctx context.Context, client pb.ChatServiceClient, message strin
 	if err != nil {
 		log.Printf("Cannot send message - Error: %v", err)
 	}
+
 	// Increase Lamport timestamp before sending
 	Lamport++
 
@@ -106,21 +89,49 @@ func sendMessage(ctx context.Context, client pb.ChatServiceClient, message strin
 		Timestamp: Lamport,
 	}
 
-	//clearPreviousConsoleLine()
-	//fmt.Printf("Sent at " + formatClientMessage(&msg))
 	stream.Send(&msg)
 
+	// CloseAndRecv() closes the stream and returns the server's response, an ack
 	ack, err := stream.CloseAndRecv()
 	if err != nil {
 		log.Printf("Cannot send message - Error: %v", err)
 	}
 
-	fmt.Printf("Message  %v \n", ack) // Message Status: Sent if successful
+	fmt.Printf("Message  %v \n", ack)
+	// The prev. line is cleared, so that sent messages is not printed twice for the client
 	clearPreviousConsoleLine()
 }
 
-var channelName = flag.String("channel", "Eepy chat", "Channel name for chatting")
-var senderName = flag.String("sender", "Anon", "Sender's name")
+// Function to increment the client's Lamport timestamp; used after receiving a message
+func incrLamport(msg *pb.Message) {
+	if msg.GetTimestamp() > Lamport {
+		Lamport = msg.GetTimestamp() + 1
+	} else {
+		Lamport++
+	}
+	msg.Timestamp = Lamport
+}
+
+// \033[1A moves the cursor up one line
+// \033[2K clears the entire line
+func clearPreviousConsoleLine() {
+	fmt.Print("\033[1A\033[2K")
+}
+
+// Function to format message to be printed to the client
+func formatClientMessage(incoming *pb.Message) string {
+	return fmt.Sprintf("Lamport time: %v\n[%v]: %v\n\n", incoming.GetTimestamp(), incoming.GetSender(), incoming.GetMessage())
+}
+
+func printWelcome() {
+	fmt.Println("\n ━━━━━⊱⊱ ⋆  CHITTY CHAT ⋆ ⊰⊰━━━━━")
+	fmt.Println("⋆｡˚ ☁︎ ˚｡ Welcome to " + *channelName)
+	fmt.Println("⋆｡˚ ☁︎ ˚｡ Your username's " + *senderName)
+	fmt.Printf("⋆｡˚ ☁︎ ˚｡ To exit, press Ctrl + C\n\n")
+}
+
+var channelName = flag.String("channel", "Eepy", "Channel name for chatting")
+var senderName = flag.String("username", "Anon", "Sender's name")
 var tcpServer = flag.String("server", ":8080", "Tcp server")
 
 var Lamport int32 = 0
@@ -128,7 +139,8 @@ var Lamport int32 = 0
 func main() {
 
 	flag.Parse()
-	fmt.Println("--- CHITTY CHAT ---")
+
+	printWelcome()
 
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithBlock(), grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -143,10 +155,10 @@ func main() {
 
 	defer conn.Close()
 
-	go joinChannel(ctx, client) //, Lamport)
+	go joinChannel(ctx, client)
 
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
-		go sendMessage(ctx, client, scanner.Text()) //, Lamport)
+		go sendMessage(ctx, client, scanner.Text())
 	}
 }
